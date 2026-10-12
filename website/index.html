@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Waste Classifier</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<style>
+:root{--g900:#14532d;--g800:#166534;--g600:#16a34a;--g400:#4ade80;--g100:#dcfce7;--g50:#f0fdf4;--ink:#0f172a;--muted:#64748b;--border:#bbf7d0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--g50);color:var(--ink);line-height:1.5}
+.hero{background:linear-gradient(135deg,#14532d,#16a34a 60%,#4ade80);color:#fff;text-align:center;padding:56px 20px 100px}
+.badge{display:inline-block;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font-size:.85rem;margin-bottom:16px}
+.hero h1{font-size:clamp(1.8rem,5vw,2.8rem);font-weight:700}
+.hero p{max-width:640px;margin:12px auto 0;opacity:.95}
+main{max-width:1000px;margin:-60px auto 30px;padding:0 16px}
+.status{text-align:center;font-size:.9rem;color:#fff;margin-bottom:14px;font-weight:500}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(22,101,52,.10)}
+.card h2{font-size:1.1rem;margin-bottom:14px;color:var(--g800)}
+.drop{border:2px dashed #86efac;border-radius:14px;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;background:var(--g50);transition:.2s;overflow:hidden;padding:16px}
+.drop.drag{background:var(--g100);border-color:var(--g600)}
+.drop img{max-width:100%;max-height:300px;border-radius:10px;display:none}
+.drop .icon{font-size:2.6rem}
+.drop small{color:var(--muted)}
+.btns{display:flex;gap:10px;margin-top:14px}
+button{font-family:inherit;font-size:1rem;font-weight:600;border:none;border-radius:12px;padding:12px 18px;cursor:pointer}
+.primary{background:var(--g600);color:#fff;flex:1}
+.primary:hover:not(:disabled){background:var(--g800)}
+.primary:disabled{background:#a7f3d0;cursor:not-allowed}
+.ghost{background:#fff;color:var(--g800);border:1px solid var(--border)}
+.empty{color:var(--muted);text-align:center;padding:70px 10px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.top .big{font-size:3rem}
+.top h3{font-size:1.4rem;color:var(--g900)}
+.top span{color:var(--muted);font-size:.95rem}
+.tip{background:var(--g50);border-left:4px solid var(--g600);padding:12px 14px;border-radius:8px;margin:14px 0}
+.warn{background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 14px;border-radius:8px;margin:14px 0;color:#92400e}
+.card h4{margin:14px 0 4px;color:var(--g800)}
+.bar{margin:10px 0}
+.bar .row{display:flex;justify-content:space-between;font-size:.9rem}
+.bar .track{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:4px}
+.bar .fill{height:100%;background:linear-gradient(90deg,var(--g600),var(--g400));border-radius:999px}
+.chips{text-align:center;margin:28px 0 8px}
+.chips span{display:inline-block;background:var(--g100);color:var(--g800);padding:6px 14px;border-radius:999px;margin:4px;font-size:.9rem;font-weight:500}
+.about{margin-top:20px}
+.about summary{cursor:pointer;font-weight:600;color:var(--g800)}
+.about p{margin-top:10px;color:#334155}
+footer{text-align:center;color:var(--muted);font-size:.85rem;padding:20px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="badge">AI • Computer Vision • Transfer Learning</div>
+  <h1>♻️ Smart Waste Classifier</h1>
+  <p>Upload a photo of waste and get an instant prediction of its category, along with a simple tip on how to dispose of it.</p>
+</header>
+
+<main>
+  <div class="status" id="status">Loading AI model…</div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>📷 Upload a photo</h2>
+      <label class="drop" id="drop">
+        <div class="icon" id="dropIcon">⬆️</div>
+        <strong id="dropText">Click to upload or drag and drop</strong>
+        <small id="dropHint">JPG or PNG. One item per photo works best.</small>
+        <img id="preview" alt="Preview">
+        <input type="file" id="file" accept="image/*" hidden>
+      </label>
+      <div class="btns">
+        <button class="ghost" id="clear">Clear</button>
+        <button class="primary" id="go" disabled>🔍 Classify</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>📊 Result</h2>
+      <div id="result" class="empty">Your result will appear here.</div>
+    </section>
+  </div>
+
+  <div class="chips" id="chips"></div>
+
+  <section class="card about">
+    <details>
+      <summary>About this project</summary>
+      <p><strong>Model:</strong> MobileNetV2 with transfer learning (pretrained on ImageNet, fine-tuned for waste).</p>
+      <p><strong>Dataset:</strong> RealWaste, about 4,750 real landfill photos across 9 material types.</p>
+      <p><strong>Validation accuracy:</strong> around 85%.</p>
+      <p><strong>Note:</strong> Plastic, Metal and Glass can look similar in photos, so these are the most common mix-ups.</p>
+    </details>
+  </section>
+</main>
+
+<footer>♻️ Sort smarter. Waste less.</footer>
+
+<script>
+const CLASSES = ['Cardboard','Food Organics','Glass','Metal','Miscellaneous Trash','Paper','Plastic','Textile Trash','Vegetation'];
+const ICONS = {'Cardboard':'📦','Food Organics':'🍎','Glass':'🍾','Metal':'🥫','Miscellaneous Trash':'🗑️','Paper':'📄','Plastic':'🧴','Textile Trash':'👕','Vegetation':'🌿'};
+const TIPS = {
+  'Cardboard':'Flatten it and keep it dry, then put it in the paper/cardboard recycling.',
+  'Food Organics':'Put it in the wet waste bin or compost it.',
+  'Glass':'Rinse it and recycle it. Wrap broken glass safely before disposal.',
+  'Metal':'Rinse cans and containers, then give them to metal recycling.',
+  'Miscellaneous Trash':'This cannot be recycled easily. Put it in the general waste bin.',
+  'Paper':'Keep it clean and dry, then recycle it with paper.',
+  'Plastic':'Rinse it and check the recycling symbol. Recycle where plastic is accepted.',
+  'Textile Trash':'Donate it if it is still wearable. Otherwise use textile recycling.',
+  'Vegetation':'Compost it as garden waste.'
+};
+
+const $ = id => document.getElementById(id);
+const fileInput = $('file'), drop = $('drop'), preview = $('preview'), go = $('go'), statusEl = $('status');
+let model = null, hasImage = false;
+
+$('chips').innerHTML = CLASSES.map(c => `<span>${ICONS[c]} ${c}</span>`).join('');
+
+async function init() {
+  try {
+    model = await tf.loadGraphModel('model.json');
+    tf.tidy(() => {
+      const o = model.predict(tf.zeros([1, 224, 224, 3]));
+      (Array.isArray(o) ? o[0] : o).dataSync();
+    });
+    statusEl.textContent = '✅ Model ready';
+    go.disabled = !hasImage;
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = '⚠️ Could not load the model. Please refresh the page.';
+  }
+}
+
+function showImage(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  preview.onload = () => {
+    preview.style.display = 'block';
+    $('dropIcon').style.display = 'none';
+    $('dropText').style.display = 'none';
+    $('dropHint').style.display = 'none';
+    hasImage = true;
+    go.disabled = !model;
+    if (model) classify();
+  };
+  preview.src = URL.createObjectURL(file);
+}
+
+async function classify() {
+  if (!model || !hasImage) return;
+  go.disabled = true;
+  go.textContent = 'Analyzing…';
+  await tf.nextFrame();
+  try {
+    const out = tf.tidy(() => {
+      const img = tf.browser.fromPixels(preview).toFloat();
+      const resized = tf.image.resizeBilinear(img, [224, 224]);
+      const o = model.predict(resized.expandDims(0));
+      return Array.isArray(o) ? o[0] : o;
+    });
+    const probs = Array.from(await out.data());
+    out.dispose();
+    render(probs);
+  } catch (e) {
+    console.error(e);
+    $('result').className = 'empty';
+    $('result').textContent = 'Something went wrong. Please try another photo.';
+  }
+  go.disabled = false;
+  go.textContent = '🔍 Classify';
+}
+
+function render(p) {
+  const order = p.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]);
+  const name = CLASSES[order[0][1]];
+  const conf = order[0][0] * 100;
+  let html = `<div class="top"><div class="big">${ICONS[name]}</div><div><h3>${name}</h3><span>Confidence: ${conf.toFixed(1)}%</span></div></div>`;
+  html += `<div class="tip"><strong>What to do:</strong> ${TIPS[name]}</div>`;
+  if (conf < 50) html += `<div class="warn">⚠️ The model is not very sure. Try a clearer, closer photo on a plain background.</div>`;
+  html += `<h4>Top 3 predictions</h4>`;
+  order.slice(0, 3).forEach(([v, i]) => {
+    const pct = (v * 100).toFixed(1);
+    html += `<div class="bar"><div class="row"><span>${ICONS[CLASSES[i]]} ${CLASSES[i]}</span><span>${pct}%</span></div><div class="track"><div class="fill" style="width:${pct}%"></div></div></div>`;
+  });
+  $('result').className = '';
+  $('result').innerHTML = html;
+}
+
+function clearAll() {
+  preview.removeAttribute('src');
+  preview.style.display = 'none';
+  $('dropIcon').style.display = '';
+  $('dropText').style.display = '';
+  $('dropHint').style.display = '';
+  fileInput.value = '';
+  hasImage = false;
+  go.disabled = true;
+  $('result').className = 'empty';
+  $('result').textContent = 'Your result will appear here.';
+}
+
+fileInput.addEventListener('change', e => showImage(e.target.files[0]));
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', e => showImage(e.dataTransfer.files[0]));
+go.addEventListener('click', classify);
+$('clear').addEventListener('click', clearAll);
+
+init();
+</script>
+</body>
+</html>
