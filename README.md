@@ -2,7 +2,7 @@
 
 An image recognition system that identifies waste into 9 categories from a photo and gives a simple tip on how to dispose of it.
 
-🔗 **Live Demo:** [Click here to open the website](https://huggingface.co/spaces/khadeejajasla/waste-classifier)
+🔗 **Live Demo:** [Click here to open the website](https://khadeejajasla-waste-classifier.static.hf.space)
 
 ---
 
